@@ -1,0 +1,4 @@
+layers,784-200-100-10
+epochs,20
+alpha,0.001
+batch_size,64
