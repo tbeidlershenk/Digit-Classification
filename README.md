@@ -5,7 +5,7 @@ This project implements a neural network in Python using the PyTorch framework t
 This project was started to learn about neural networks, as well as for furthering my familiarity with NumPy and data manipulation in Python.
 
 ## MNIST dataset
-![image](MNIST_img.png)<br>
+![image](https://github.com/tbeidlershenk/Digit-Classification/blob/main/MNIST_img.png?raw=true)<br>
 Individual images represented as $28$ x $28$ arrays filled with greyscale values $0-255$.
 
 ## Resources Used
