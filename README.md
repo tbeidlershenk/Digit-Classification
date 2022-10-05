@@ -1,6 +1,9 @@
 ## Digit Classification Project
 ### About
-This project implements a neural network in Python using the PyTorch framework to classify "handwritten" digits with $97\%$ accuracy.
+This project implements a neural network in Python using the PyTorch framework to classify "handwritten" digits with $97\%$ accuracy.<br>
+![image](https://github.com/tbeidlershenk/Digit-Classification/blob/main/training_e3.png?raw=true)<br>
+Accuracy of the model over 3 epochs, using batches of size $1000$
+
 ### Purpose
 This project was started to learn about neural networks, as well as for furthering my familiarity with NumPy and data manipulation in Python.
 
