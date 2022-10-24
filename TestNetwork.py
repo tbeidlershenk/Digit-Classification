@@ -1,120 +1,99 @@
-from NeuralNetwork import NeuralNetwork
-import sys
+from ConvNeuralNetwork import ConvNeuralNetwork
 from mnist import MNIST
 import numpy as np
 import torch
 from torch import nn
-from datetime import datetime
-import PlotModel as pm
 import matplotlib.pyplot as plt
+import sys
+from datetime import datetime
+import os
+from PIL import Image
+from PlotModel import create_graph, update_graph
 
-def main():
-    mnist_data = MNIST('data')
+mnist_data = MNIST('data')
 
-    # python3 TestNetwork.py train epochs batch_size alpha
-    if sys.argv[1] == 'train':
-        model = train(mnist_data, int(sys.argv[2]), int(sys.argv[3]), float(sys.argv[4]))
-        accuracy = test(mnist_data, model)
-        print("Accuracy =",accuracy)
-        if (input("Save model? Y/N ")=="Y"):
-            torch.save(model,'data/models/saved_model-'+str(datetime.now())+'.pt') 
-    elif sys.argv[1] != None:
-        model = torch.load(sys.argv[2])
-            
-        # python3 TestNetwork.py load modelfile.pt
-        if sys.argv[1] == 'load':
-            accuracy = test(mnist_data, model)
-            print("Accuracy =",accuracy)
-        
-        # python3 TestNetwork.py input modelfile.pt imagefile.bmp
-        elif sys.argv[1] == 'input':
-            path = sys.argv[3]
-            pm.input_image(model, path)
-        
-    else:
-        sys.exit(1)
-
-def train(mnist_data, epochs, batch_size, alpha):
+def train(epochs, batch_size, alpha):
     
     training_images, training_labels = mnist_data.load_training()
-    train_images = torch.tensor(training_images, dtype=torch.float32)
-    train_labels = torch.tensor(training_labels, dtype=torch.long)
-    train_size = len(training_images)
+    train_i = np.reshape(training_images, (60000, 1, 28, 28))
 
-    layers = np.array([784, 200, 100, 10])
-    size = len(layers)
-    hidden = layers[1:size-1]
-    batches = int(float(train_size)/batch_size)
-
-    model = NeuralNetwork(layers[0], hidden, layers[size-1])
+    model = ConvNeuralNetwork()
     loss = nn.CrossEntropyLoss()
     optimizer=torch.optim.Adam(model.parameters(),lr=alpha)
-
-    pm.create_graph(batch_size)
-    for e in range (epochs):
-        model = run_epoch(e, model, loss, optimizer, batches, batch_size, train_images, train_labels)
+    num_batches = int(60000/batch_size)
+    create_graph(batch_size)
     
+    for e in range(epochs):
+        for b in range(num_batches):          
+            first = batch_size * b
+            last = first + batch_size
+            # create 4d tensor of batch_size images
+            image_batch = torch.tensor(train_i[first:last,:,:,:], dtype=torch.float32)
+            label_batch = torch.tensor(training_labels[first:last], dtype=torch.long)
+            # forward pass
+            outputs = model(image_batch)
+            # calculate loss
+            curr_loss = loss(outputs, label_batch)
+            # clear gradients
+            optimizer.zero_grad()
+            # backward pass
+            curr_loss.backward()
+            # update parameters
+            optimizer.step()
+            update_graph((e*num_batches)+b, curr_loss.item())
+
+            print("Epoch " + str(e) + ", Batch " + str(b))
+
     return model
 
-def test(mnist_data, model):
+def test(model):
     test_images, test_labels = mnist_data.load_testing()
-    test_images = torch.tensor(test_images, dtype=torch.float32)
-    test_labels = torch.tensor(test_labels, dtype=torch.long)  
-    return run_testset(model, test_images, test_labels)
+    test_i = np.reshape(test_images, (10000, 1, 28, 28))
 
-def run_epoch(e, model, loss, optimizer, batches, batch_size, train_images, train_labels):
-    ind = 0
-    for b in range(batches):
-        print("Epoch = " + str(e) + ", Batch = " + str(b))
-        batchLoss = 0
-        corr = 0.0
-        # Run one batch
-        for x in range(batch_size):
-            image = train_images[ind]
-            label = train_labels[ind]
-            # Feed Forward
-            output = model.forward(image)
-            batchLoss += loss(output,label)
-            ind += 1
-            if (model.predict(image)==label):
-                corr += 1
+    count = 0.0
+    for i in range(len(test_i)):
+        # get the image
+        tns = torch.tensor(test_i[i:i+1,:,:,:], dtype=torch.float32)
+        # get prediction and actual
+        pred = model.predict(tns).item()
+        actual = test_labels[i]
         
-        # Clear gradients
-        optimizer.zero_grad()
-        # Backpropagate
-        batchLoss.backward()
-        # Optimizes based on gradient descent
-        optimizer.step()
-        
-        # Add data to graph
-        pct = corr/batch_size
-        num = e * batches + b
-        print(num)
-        pm.update_graph(num, pct)
+        print("Guess = " + str(pred) + ", Actual = " + str(actual))
+        if pred == actual:
+            count += 1
+    pct = count/10000
+    print("Accuracy: " + str(pct))
 
-    return model
+def test_sketches(model):
+    rel_path = "data/sketches/images/"
+    files = os.listdir(rel_path)
+    print(files)
+    numCorrect = 0
+    for img in files:
+        # Extract label from filename
+        img = rel_path + img
+        label = int(img.split('_')[1][1])
+        image_src = Image.open(img).convert('L')
+        image_data = 255-np.asarray(image_src)
+        image_data_reshaped = np.reshape(image_data,(1,1,28,28))
+        guess = model.predict(torch.tensor(image_data_reshaped, dtype=torch.float32))
+        if (guess == label): numCorrect += 1
+        print("Guess = " + str(guess) + ", Actual = " + str(label))
+    pct = float(numCorrect)/len(files)
+    print("Sketch Accuracy: " + str(pct))
 
-def run_testset(model, test_images, test_labels):
-    
-    corr=0.0
-    test_size = len(test_images)
 
-    for x in range(test_size):
-        
-        image = test_images[x]
-        label = test_labels[x]
-        pred = model.predict(image)
-        
-        if (pred==label):
-            corr += 1
-        else:
-            print('incorrectly guessed')
-        
-        print("Guess="+str(pred) + " and Actual=" +str(label))
-    
-    accuracy = str(float(corr)/test_size)
-    return accuracy
+def main():
+    epochs = int(sys.argv[1])
+    batch_size = int(sys.argv[2])
+    alpha = float(sys.argv[3])
+    model = train(epochs, batch_size, alpha)
+    test(model)
+    test_sketches(model)
+    if ("Y" == input("Save model? Y/N: ")):
+        time = str(datetime.now())
+        print("Model saved to data/models/ as saved_model-"+time+".pt")
+        torch.save(model,'data/models/saved_model-'+time+'.pt') 
 
 if __name__ == '__main__':
     main()
-
