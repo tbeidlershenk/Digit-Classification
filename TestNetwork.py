@@ -11,6 +11,7 @@ from PIL import Image
 from PlotModel import create_graph, update_graph
 
 mnist_data = MNIST('data')
+plot = False
 
 def train(epochs, batch_size, alpha):
     
@@ -21,7 +22,7 @@ def train(epochs, batch_size, alpha):
     loss = nn.CrossEntropyLoss()
     optimizer=torch.optim.Adam(model.parameters(),lr=alpha)
     num_batches = int(60000/batch_size)
-    create_graph(batch_size)
+    if plot: create_graph(batch_size)
     
     for e in range(epochs):
         for b in range(num_batches):          
@@ -40,7 +41,7 @@ def train(epochs, batch_size, alpha):
             curr_loss.backward()
             # update parameters
             optimizer.step()
-            update_graph((e*num_batches)+b, curr_loss.item())
+            if plot: update_graph((e*num_batches)+b, curr_loss.item())
 
             print("Epoch " + str(e) + ", Batch " + str(b))
 
